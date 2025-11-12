@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: E-Banking
+  profiles:
+    active: dev
