@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.jsp.E_Banking.Entity.TempUser;
+
 import com.jsp.E_Banking.Service.UserService;
+import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.UserDto;
 
 import jakarta.validation.Valid;
@@ -23,12 +24,12 @@ public class AuthController {
 	private final UserService userService;
 
 	@PostMapping("/register")
-	public ResponseEntity<TempUser> register(@RequestBody @Valid UserDto dto) {
+	public ResponseEntity<ResponseDto> register(@RequestBody @Valid UserDto dto) {
 		return userService.register(dto);
 	}
 
-	@GetMapping("/verify/{email}")
-	public ResponseEntity<TempUser> fetch(@PathVariable String email) {
-		return userService.fetch(email);
+	@GetMapping("/check/{email}")
+	public String check(@PathVariable String email) {
+		return userService.check(email);
 	}
 }
