@@ -3,12 +3,21 @@ package com.jsp.E_Banking.Service;
 import java.security.SecureRandom;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.jsp.E_Banking.Entity.User;
 import com.jsp.E_Banking.Exception.DataExistsException;
+import com.jsp.E_Banking.Exception.DataNotFoundException;
+import com.jsp.E_Banking.Exception.ExpiredException;
+import com.jsp.E_Banking.Exception.MissMatchException;
 import com.jsp.E_Banking.Repository.UserRepository;
+import com.jsp.E_Banking.dto.BankingRole;
+import com.jsp.E_Banking.dto.OtpDto;
+import com.jsp.E_Banking.dto.ResetPasswordDto;
 import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.UserDto;
+import com.jsp.E_Banking.util.MessageSendingHelper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,14 +26,17 @@ import lombok.RequiredArgsConstructor;
 public class UserServiceImpl implements UserService {
 	private final RedisService redisService;
 	private final UserRepository userRepository;
+	private final MessageSendingHelper messageSendingHelper;
+	private final PasswordEncoder passwordEncoder;
 
 	public ResponseEntity<ResponseDto> register(UserDto dto) {
 		if (redisService.fetchUserDto(dto.getEmail()) == null) {
 			if (!userRepository.existsByEmailOrMobile(dto.getEmail(), dto.getMobile())) {
 				int otp = new SecureRandom().nextInt(1000, 10000);
+				messageSendingHelper.sendOtp(dto.getName(), dto.getEmail(), otp);
 				redisService.saveUserDto(dto);
 				redisService.saveUserOtp(dto.getEmail(), otp);
-				return ResponseEntity.status(201).body(new ResponseDto("Otp Sent Verify", dto));
+				return ResponseEntity.status(201).body(new ResponseDto("Otp Sent Success, Verify to Continue", dto));
 			} else {
 				throw new DataExistsException(
 						"Account Already Exists with " + dto.getEmail() + " or " + dto.getMobile());
@@ -34,10 +46,73 @@ public class UserServiceImpl implements UserService {
 		}
 	}
 
-	public String check(String email) {
-		int a = redisService.fetchOtp(email);
-		UserDto b = redisService.fetchUserDto(email);
-		return "" + a + " ------ " + b;
+	@Override
+	public ResponseEntity<ResponseDto> verifyOtp(OtpDto dto) {
+		int otp = redisService.fetchOtp(dto.getEmail());
+		if (otp == 0)
+			throw new ExpiredException("Otp Expired");
+		else {
+			if (otp == dto.getOtp()) {
+				UserDto userDto = redisService.fetchUserDto(dto.getEmail());
+				User user = new User(null, userDto.getName(), userDto.getEmail(), userDto.getMobile(), userDto.getDob(),
+						passwordEncoder.encode(userDto.getPassword()), BankingRole.valueOf(userDto.getRole()), null,
+						null);
+				userRepository.save(user);
+				redisService.deleteUserDto(dto.getEmail());
+				redisService.deleteUserOtp(dto.getEmail());
+				return ResponseEntity.status(201).body(new ResponseDto("Account Created Success", userDto));
+			} else {
+				throw new MissMatchException("Otp Missmatch");
+			}
+		}
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> resendOtp(String email) {
+		if (redisService.fetchOtp(email) == 0)
+			throw new DataNotFoundException(email + " doesnt exist");
+		else {
+			int otp = new SecureRandom().nextInt(1000, 10000);
+			messageSendingHelper.sendOtp(redisService.fetchUserDto(email).getName(), email, otp);
+			redisService.saveUserOtp(email, otp);
+			return ResponseEntity.status(200)
+					.body(new ResponseDto("Otp Re-Sent Success, Verify to Continue", redisService.fetchUserDto(email)));
+		}
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> forgotPassword(String email) {
+		if (!userRepository.existsByEmail(email))
+			throw new DataNotFoundException("Invalid Email " + email);
+		else {
+			int otp = new SecureRandom().nextInt(1000, 10000);
+			messageSendingHelper.sendForgotPasswordOtp(email, otp);
+			redisService.saveUserOtp(email, otp);
+			return ResponseEntity.status(200)
+					.body(new ResponseDto("Otp for Reseting Password has been sent to " + email, email));
+		}
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> resetPassword(ResetPasswordDto dto) {
+		int otp = redisService.fetchOtp(dto.getEmail());
+		if (otp == 0)
+			throw new ExpiredException("Otp Expired Try Again");
+		else {
+			if (otp != dto.getOtp())
+				throw new MissMatchException("Invalid Otp , Try Again");
+			else {
+				if (!userRepository.existsByEmail(dto.getEmail()))
+					throw new DataNotFoundException("Account with " + dto.getEmail() + " doesnt exist, Try Again");
+				else {
+					User user = userRepository.findByEmail(dto.getEmail());
+					user.setPassword(passwordEncoder.encode(dto.getPassword()));
+					userRepository.save(user);
+
+					return ResponseEntity.status(200).body(new ResponseDto("Password Reset Success", dto.getEmail()));
+				}
+			}
+		}
 	}
 
 }

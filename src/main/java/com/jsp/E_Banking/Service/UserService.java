@@ -2,6 +2,8 @@ package com.jsp.E_Banking.Service;
 
 import org.springframework.http.ResponseEntity;
 
+import com.jsp.E_Banking.dto.OtpDto;
+import com.jsp.E_Banking.dto.ResetPasswordDto;
 import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.UserDto;
 
@@ -9,5 +11,12 @@ public interface UserService {
 
 	ResponseEntity<ResponseDto> register(UserDto dto);
 
-	String check(String email);
+	ResponseEntity<ResponseDto> verifyOtp(OtpDto dto);
+
+	ResponseEntity<ResponseDto> resendOtp(String email);
+
+	ResponseEntity<ResponseDto> forgotPassword(String email);
+
+	ResponseEntity<ResponseDto> resetPassword(ResetPasswordDto dto);
+
 }
