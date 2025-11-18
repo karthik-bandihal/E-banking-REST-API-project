@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
@@ -13,7 +15,13 @@ import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.OpenAPI;
 
 @Configuration
+@Controller
 public class SwaggerConfig {
+	
+	@GetMapping("/")
+	public String loadSwagger() {
+		return "redirect:swagger-ui/index.html";
+	}
 
 	@Bean
 	OpenAPI ebankingOpenAPI() {

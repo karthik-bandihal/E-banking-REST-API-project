@@ -24,3 +24,15 @@ spring:
             enable: true
 server:
   port: 8055
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
+jwt:
+  secrets: qwertyuiopasdfghjklzxcvbnmqwertyuiopasdfghjklzxcvbnmqwertyuiop

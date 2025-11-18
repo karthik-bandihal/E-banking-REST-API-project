@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jsp.E_Banking.Service.UserService;
+import com.jsp.E_Banking.dto.LoginDto;
 import com.jsp.E_Banking.dto.OtpDto;
 import com.jsp.E_Banking.dto.ResetPasswordDto;
 import com.jsp.E_Banking.dto.ResponseDto;
@@ -47,6 +48,11 @@ public class AuthController {
 	@PatchMapping("/reset-password")
 	public ResponseEntity<ResponseDto> resetPassword(@RequestBody @Valid ResetPasswordDto dto) {
 		return userService.resetPassword(dto);
+	}
+	
+	@PostMapping("/login")
+	public ResponseEntity<ResponseDto> login(@RequestBody @Valid LoginDto dto) {
+		return userService.login(dto);
 	}
 
 }
