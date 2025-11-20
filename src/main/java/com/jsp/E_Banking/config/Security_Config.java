@@ -39,11 +39,11 @@ public class Security_Config {
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://ebanking-x7l5.onrender.com"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*")); // important
+        configuration.setAllowedHeaders(Arrays.asList("*")); 
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -54,7 +54,7 @@ public class Security_Config {
     @Bean
     SecurityFilterChain security(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity
-                .cors(Customizer.withDefaults()) // 🔹 this line enables your CORS bean
+                .cors(Customizer.withDefaults())
                 .csrf(x -> x.disable())
                 .authorizeHttpRequests(x -> x
                         .requestMatchers("/api/v1/user/**").hasRole("USER")

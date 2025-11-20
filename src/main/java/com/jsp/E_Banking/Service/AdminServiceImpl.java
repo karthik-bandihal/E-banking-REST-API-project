@@ -1,0 +1,50 @@
+package com.jsp.E_Banking.Service;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import com.jsp.E_Banking.Entity.SavingBankAccount;
+import com.jsp.E_Banking.Entity.User;
+import com.jsp.E_Banking.Exception.DataNotFoundException;
+import com.jsp.E_Banking.Repository.SavingAccountRepository;
+import com.jsp.E_Banking.Repository.UserRepository;
+import com.jsp.E_Banking.dto.ResponseDto;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class AdminServiceImpl implements AdminService {
+
+	private final SavingAccountRepository savingAccountRepository;
+	private final UserRepository userRepository;
+
+	@Override
+	public ResponseEntity<ResponseDto> getPendingAccounts() {
+		List<SavingBankAccount> list = savingAccountRepository.findByActiveFalse();
+		if (list.isEmpty())
+			throw new DataNotFoundException("No Accounts Pending for Verfication");
+		else {
+			return ResponseEntity.ok(new ResponseDto("Accounts Found", list));
+		}
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> getUser(Long accountNumber) {
+		User user = userRepository.findByBankAccount_accountNumber(accountNumber)
+				.orElseThrow(() -> new DataNotFoundException("No User Details Found"));
+		return ResponseEntity.ok(new ResponseDto("User Details Found", user));
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> approveBankAccount(Long accountNumber) {
+		SavingBankAccount account = savingAccountRepository.findById(accountNumber)
+				.orElseThrow(() -> new DataNotFoundException("No Account Details Found"));
+		account.setActive(true);
+		savingAccountRepository.save(account);
+		return ResponseEntity.ok(new ResponseDto("Status Updated Success", account));
+	}
+
+}
