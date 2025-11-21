@@ -2,6 +2,7 @@ package com.jsp.E_Banking.Service;
 
 import java.security.Principal;
 import java.security.SecureRandom;
+import java.util.LinkedHashMap;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,6 +27,8 @@ import com.jsp.E_Banking.dto.ResetPasswordDto;
 import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.SavingAccountDto;
 import com.jsp.E_Banking.dto.UserDto;
+import com.jsp.E_Banking.mapper.SavingsBankMapper;
+import com.jsp.E_Banking.mapper.UserMapper;
 import com.jsp.E_Banking.util.JwtUtil;
 import com.jsp.E_Banking.util.MessageSendingHelper;
 
@@ -42,6 +45,8 @@ public class UserServiceImpl implements UserService {
 	private final JwtUtil jwtUtil;
 	private final UserDetailsService userDetailsService;
 	private final SavingAccountRepository savingAccountRepository;
+	private final UserMapper userMapper;
+	private final SavingsBankMapper bankMapper;
 
 	public ResponseEntity<ResponseDto> register(UserDto dto) {
 		if (redisService.fetchUserDto(dto.getEmail()) == null) {
@@ -68,9 +73,7 @@ public class UserServiceImpl implements UserService {
 		else {
 			if (otp == dto.getOtp()) {
 				UserDto userDto = redisService.fetchUserDto(dto.getEmail());
-				User user = new User(null, userDto.getName(), userDto.getEmail(), userDto.getMobile(), userDto.getDob(),
-						passwordEncoder.encode(userDto.getPassword()), BankingRole.valueOf(userDto.getRole()), null,
-						null, null);
+				User user = userMapper.toEntity(userDto);
 				userRepository.save(user);
 				redisService.deleteUserDto(dto.getEmail());
 				redisService.deleteUserOtp(dto.getEmail());
@@ -123,7 +126,9 @@ public class UserServiceImpl implements UserService {
 					user.setPassword(passwordEncoder.encode(dto.getPassword()));
 					userRepository.save(user);
 
-					return ResponseEntity.status(200).body(new ResponseDto("Password Reset Success", dto.getEmail()));
+					redisService.deleteUserOtp(dto.getEmail());
+					return ResponseEntity.status(200)
+							.body(new ResponseDto("Password Reset Success", userMapper.toDto(user)));
 				}
 			}
 		}
@@ -134,7 +139,10 @@ public class UserServiceImpl implements UserService {
 		authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(dto.getEmail(), dto.getPassword()));
 		UserDetails userDetails = userDetailsService.loadUserByUsername(dto.getEmail());
 		String token = jwtUtil.generateToken(userDetails);
-		return ResponseEntity.ok(new ResponseDto("Login Success", token));
+		LinkedHashMap<String, Object> map = new LinkedHashMap<String, Object>();
+		map.put("token", token);
+		map.put("user", userMapper.toDto(userRepository.findByEmail(dto.getEmail())));
+		return ResponseEntity.ok(new ResponseDto("Login Success", map));
 	}
 
 	@Override
@@ -158,9 +166,7 @@ public class UserServiceImpl implements UserService {
 				throw new DataExistsException("Account Still Pending for Verification Wait for some time");
 
 		} else {
-			SavingBankAccount bankAccount = new SavingBankAccount(null, accountDto.getAddress(), "EBNK000001",
-					accountDto.getFullName(), accountDto.getPan(), accountDto.getAadhar(), "EBANK-DEFAULT", 0.0, false,
-					false);
+			SavingBankAccount bankAccount = bankMapper.toEntity(accountDto);
 			savingAccountRepository.save(bankAccount);
 			user.setBankAccount(bankAccount);
 			userRepository.save(user);

@@ -11,6 +11,7 @@ import com.jsp.E_Banking.Exception.DataNotFoundException;
 import com.jsp.E_Banking.Repository.SavingAccountRepository;
 import com.jsp.E_Banking.Repository.UserRepository;
 import com.jsp.E_Banking.dto.ResponseDto;
+import com.jsp.E_Banking.mapper.UserMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +21,7 @@ public class AdminServiceImpl implements AdminService {
 
 	private final SavingAccountRepository savingAccountRepository;
 	private final UserRepository userRepository;
+	private final UserMapper userMapper;
 
 	@Override
 	public ResponseEntity<ResponseDto> getPendingAccounts() {
@@ -35,7 +37,7 @@ public class AdminServiceImpl implements AdminService {
 	public ResponseEntity<ResponseDto> getUser(Long accountNumber) {
 		User user = userRepository.findByBankAccount_accountNumber(accountNumber)
 				.orElseThrow(() -> new DataNotFoundException("No User Details Found"));
-		return ResponseEntity.ok(new ResponseDto("User Details Found", user));
+		return ResponseEntity.ok(new ResponseDto("User Details Found", userMapper.toDto(user)));
 	}
 
 	@Override
@@ -44,7 +46,7 @@ public class AdminServiceImpl implements AdminService {
 				.orElseThrow(() -> new DataNotFoundException("No Account Details Found"));
 		account.setActive(true);
 		savingAccountRepository.save(account);
-		return ResponseEntity.ok(new ResponseDto("Status Updated Success", account));
+		return ResponseEntity.ok(new ResponseDto("Account Approved Success", account));
 	}
 
 }
