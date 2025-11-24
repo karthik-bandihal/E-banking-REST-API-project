@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.jsp.E_Banking.Service.UserService;
 import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.SavingAccountDto;
+import com.jsp.E_Banking.dto.TransferDto;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,11 @@ public class UserController {
 	public ResponseEntity<ResponseDto> confirmDeposit(@RequestParam Double amount,
 			@RequestParam String razorpay_payment_id, Principal principal) {
 		return userService.confirmPayment(amount, razorpay_payment_id, principal);
+	}
+
+	@PostMapping("/transafer")
+	public ResponseEntity<ResponseDto> transferAmount(Principal principal,@RequestBody TransferDto dto) {
+		return userService.transfer(principal,dto);
 	}
 
 }

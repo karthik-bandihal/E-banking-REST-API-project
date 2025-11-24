@@ -22,6 +22,7 @@ import com.jsp.E_Banking.Exception.DataExistsException;
 import com.jsp.E_Banking.Exception.DataNotFoundException;
 import com.jsp.E_Banking.Exception.ExpiredException;
 import com.jsp.E_Banking.Exception.MissMatchException;
+import com.jsp.E_Banking.Exception.PaymentFailedException;
 import com.jsp.E_Banking.Repository.SavingAccountRepository;
 import com.jsp.E_Banking.Repository.UserRepository;
 import com.jsp.E_Banking.dto.BankBalanceDto;
@@ -31,6 +32,7 @@ import com.jsp.E_Banking.dto.RazorpayDto;
 import com.jsp.E_Banking.dto.ResetPasswordDto;
 import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.SavingAccountDto;
+import com.jsp.E_Banking.dto.TransferDto;
 import com.jsp.E_Banking.dto.UserDto;
 import com.jsp.E_Banking.mapper.SavingsBankMapper;
 import com.jsp.E_Banking.mapper.UserMapper;
@@ -38,6 +40,7 @@ import com.jsp.E_Banking.util.JwtUtil;
 import com.jsp.E_Banking.util.MessageSendingHelper;
 import com.jsp.E_Banking.util.PaymentUtil;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -183,7 +186,7 @@ public class UserServiceImpl implements UserService {
 	}
 
 	private User getLoggedInUser(Principal principal) {
-		if(principal==null)
+		if( principal == null)
 			throw new DataNotFoundException("Not Logged in , Invalid Session");
 		String email = principal.getName();
 		User user = userRepository.findByEmail(email);
@@ -229,13 +232,56 @@ public class UserServiceImpl implements UserService {
 			if (transactions == null)
 				transactions = new LinkedList<BankTransactions>();
 			BankTransactions transaction = new BankTransactions(null, razorpay_payment_id, amount / 100, "DEPOSIT",
-					null, account.getBalance());
+					null,account.getBalance(),account.getBalance()+ amount / 100);
 			transactions.add(transaction);
 			account.setBalance(account.getBalance() + amount / 100);
 			account.setBankTransactions(transactions);
 			savingAccountRepository.save(account);
 			return ResponseEntity.ok(new ResponseDto("Deposit Success", transaction));
 		}
+	}
+	@Override
+	@Transactional
+	public ResponseEntity<ResponseDto> transfer(Principal principal, TransferDto dto) {
+		User user = getLoggedInUser(principal);
+		SavingBankAccount fromAccount = user.getBankAccount();
+		SavingBankAccount toAccount = savingAccountRepository.findById(dto.getToAccountNumber())
+				.orElseThrow(() -> new DataNotFoundException("Invalid ToAccount Number"));
+		if (fromAccount == null)
+			throw new DataNotFoundException("No Bank Accounts Found Linked with This User account");
+		else {
+			if (!fromAccount.isActive() || fromAccount.isBlocked() || toAccount.isBlocked() || !toAccount.isActive())
+				throw new PaymentFailedException("Account is Not Active or Blocked Contact Admin");
+			else {
+				if (fromAccount.getBalance() < dto.getAmount())
+					throw new MissMatchException("Not Enough Balance in Your Account");
+				else {
+					List<BankTransactions> fromTransactions = fromAccount.getBankTransactions();
+					if (fromTransactions == null)
+						fromTransactions = new LinkedList<BankTransactions>();
+					BankTransactions fromTransaction = new BankTransactions(null, "", dto.getAmount(), "DEBIT", null,
+							fromAccount.getBalance(), fromAccount.getBalance() - dto.getAmount());
+					fromTransactions.add(fromTransaction);
+					fromAccount.setBalance(fromAccount.getBalance() - dto.getAmount());
+					fromAccount.setBankTransactions(fromTransactions);
+					savingAccountRepository.save(fromAccount);
+
+					List<BankTransactions> toTransactions = toAccount.getBankTransactions();
+					if (toTransactions == null)
+						toTransactions = new LinkedList<BankTransactions>();
+					BankTransactions toTransaction = new BankTransactions(null, "", dto.getAmount(), "CREDIT", null,
+							toAccount.getBalance(), toAccount.getBalance() + dto.getAmount());
+					toTransactions.add(toTransaction);
+					toAccount.setBalance(toAccount.getBalance() + dto.getAmount());
+
+					toAccount.setBankTransactions(toTransactions);
+					savingAccountRepository.save(toAccount);
+
+					return ResponseEntity.ok(new ResponseDto("Amount Transfered Success", dto));
+				}
+			}
+		}
+
 	}
 
 }
