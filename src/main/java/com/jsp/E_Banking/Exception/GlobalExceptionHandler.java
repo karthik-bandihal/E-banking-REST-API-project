@@ -47,11 +47,16 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<Object> handle(DataNotFoundException exception) {
 		return ResponseEntity.status(404).body(new ErrorDto(exception.getMessage()));
 	}
-	
+
 	@ExceptionHandler(BadCredentialsException.class)
 	@ResponseStatus(code = HttpStatus.FORBIDDEN)
 	public ErrorDto handle(BadCredentialsException exception) {
 		return new ErrorDto("Invalid Password");
+	}
+
+	@ExceptionHandler(PaymentFailedException.class)
+	public ResponseEntity<Object> handle(PaymentFailedException exception) {
+		return ResponseEntity.status(502).body(new ErrorDto(exception.getMessage()));
 	}
 
 }

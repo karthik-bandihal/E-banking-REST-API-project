@@ -35,4 +35,9 @@ management:
       show-details: always
 
 jwt:
-  secrets: qwertyuiopasdfghjklzxcvbnmqwertyuiopasdfghjklzxcvbnmqwertyuiop
+  secret: qwertyuiopasdfghjklzxcvbnmqwertyuiopasdfghjklzxcvbnmqwertyuiop
+
+
+razorpay:
+  key: ${RZRPY_KEY}
+  secret: ${RZRPY_SECRET}

@@ -3,6 +3,9 @@ package com.jsp.E_Banking.Service;
 import java.security.Principal;
 import java.security.SecureRandom;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -12,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.jsp.E_Banking.Entity.BankTransactions;
 import com.jsp.E_Banking.Entity.SavingBankAccount;
 import com.jsp.E_Banking.Entity.User;
 import com.jsp.E_Banking.Exception.DataExistsException;
@@ -20,9 +24,10 @@ import com.jsp.E_Banking.Exception.ExpiredException;
 import com.jsp.E_Banking.Exception.MissMatchException;
 import com.jsp.E_Banking.Repository.SavingAccountRepository;
 import com.jsp.E_Banking.Repository.UserRepository;
-import com.jsp.E_Banking.dto.BankingRole;
+import com.jsp.E_Banking.dto.BankBalanceDto;
 import com.jsp.E_Banking.dto.LoginDto;
 import com.jsp.E_Banking.dto.OtpDto;
+import com.jsp.E_Banking.dto.RazorpayDto;
 import com.jsp.E_Banking.dto.ResetPasswordDto;
 import com.jsp.E_Banking.dto.ResponseDto;
 import com.jsp.E_Banking.dto.SavingAccountDto;
@@ -31,6 +36,7 @@ import com.jsp.E_Banking.mapper.SavingsBankMapper;
 import com.jsp.E_Banking.mapper.UserMapper;
 import com.jsp.E_Banking.util.JwtUtil;
 import com.jsp.E_Banking.util.MessageSendingHelper;
+import com.jsp.E_Banking.util.PaymentUtil;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,6 +53,7 @@ public class UserServiceImpl implements UserService {
 	private final SavingAccountRepository savingAccountRepository;
 	private final UserMapper userMapper;
 	private final SavingsBankMapper bankMapper;
+	private final PaymentUtil paymentUtil;
 
 	public ResponseEntity<ResponseDto> register(UserDto dto) {
 		if (redisService.fetchUserDto(dto.getEmail()) == null) {
@@ -176,12 +183,59 @@ public class UserServiceImpl implements UserService {
 	}
 
 	private User getLoggedInUser(Principal principal) {
+		if(principal==null)
+			throw new DataNotFoundException("Not Logged in , Invalid Session");
 		String email = principal.getName();
 		User user = userRepository.findByEmail(email);
 		if (user == null)
-			throw new DataNotFoundException("Email Not Found in Database");
+			throw new DataNotFoundException("Not Logged in , Invalid Session");
 		else
 			return user;
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> checkBalance(Principal principal) {
+		User user = getLoggedInUser(principal);
+		SavingBankAccount account = user.getBankAccount();
+		if (account == null)
+			throw new DataNotFoundException("No Bank Accounts FOund Linked with This User account");
+		else {
+			return ResponseEntity.ok(new ResponseDto("Account Found",
+					new BankBalanceDto(account.getAccountNumber(), account.getBalance())));
+		}
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> deposit(Principal principal, Map<String, Double> map) {
+		User user = getLoggedInUser(principal);
+		SavingBankAccount account = user.getBankAccount();
+		if (account == null)
+			throw new DataNotFoundException("No Bank Accounts FOund Linked with This User account");
+		else {
+			Double amount = map.get("amount");
+			RazorpayDto razorpayDto = paymentUtil.createOrder(amount);
+			return ResponseEntity.ok(new ResponseDto("Payment Initialized Complete Payment to Proceed", razorpayDto));
+		}
+	}
+
+	@Override
+	public ResponseEntity<ResponseDto> confirmPayment(Double amount, String razorpay_payment_id, Principal principal) {
+		User user = getLoggedInUser(principal);
+		SavingBankAccount account = user.getBankAccount();
+		if (account == null)
+			throw new DataNotFoundException("No Bank Accounts FOund Linked with This User account");
+		else {
+			List<BankTransactions> transactions = account.getBankTransactions();
+			if (transactions == null)
+				transactions = new LinkedList<BankTransactions>();
+			BankTransactions transaction = new BankTransactions(null, razorpay_payment_id, amount / 100, "DEPOSIT",
+					null, account.getBalance());
+			transactions.add(transaction);
+			account.setBalance(account.getBalance() + amount / 100);
+			account.setBankTransactions(transactions);
+			savingAccountRepository.save(account);
+			return ResponseEntity.ok(new ResponseDto("Deposit Success", transaction));
+		}
 	}
 
 }
