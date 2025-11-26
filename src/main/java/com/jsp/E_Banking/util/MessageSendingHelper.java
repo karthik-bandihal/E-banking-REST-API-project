@@ -23,9 +23,10 @@ public class MessageSendingHelper {
 
 	@Async
 	public void sendOtp(String name, String email, int otp) {
-		MimeMessage message = mailSender.createMimeMessage();
-		MimeMessageHelper helper = new MimeMessageHelper(message);
+		
 		try {
+			MimeMessage message = mailSender.createMimeMessage();
+			MimeMessageHelper helper = new MimeMessageHelper(message);
 			helper.setTo(email);
 			helper.setFrom("ebanking@help.com", "eBanking");
 			helper.setSubject("Otp to Create Account at ebanking");

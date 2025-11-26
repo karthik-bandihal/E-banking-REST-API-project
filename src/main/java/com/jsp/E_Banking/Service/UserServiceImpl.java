@@ -96,7 +96,7 @@ public class UserServiceImpl implements UserService {
 
 	@Override
 	public ResponseEntity<ResponseDto> resendOtp(String email) {
-		if (redisService.fetchOtp(email) == 0)
+		if (redisService.fetchUserDto(email) == null)
 			throw new DataNotFoundException(email + " doesnt exist");
 		else {
 			int otp = new SecureRandom().nextInt(1000, 10000);
@@ -186,7 +186,7 @@ public class UserServiceImpl implements UserService {
 	}
 
 	private User getLoggedInUser(Principal principal) {
-		if( principal == null)
+		if (principal == null)
 			throw new DataNotFoundException("Not Logged in , Invalid Session");
 		String email = principal.getName();
 		User user = userRepository.findByEmail(email);
@@ -200,8 +200,8 @@ public class UserServiceImpl implements UserService {
 	public ResponseEntity<ResponseDto> checkBalance(Principal principal) {
 		User user = getLoggedInUser(principal);
 		SavingBankAccount account = user.getBankAccount();
-		if (account == null)
-			throw new DataNotFoundException("No Bank Accounts FOund Linked with This User account");
+		if (account == null || !account.isActive())
+			throw new DataNotFoundException("No Bank Accounts Found Linked with This User account");
 		else {
 			return ResponseEntity.ok(new ResponseDto("Account Found",
 					new BankBalanceDto(account.getAccountNumber(), account.getBalance())));
@@ -232,7 +232,7 @@ public class UserServiceImpl implements UserService {
 			if (transactions == null)
 				transactions = new LinkedList<BankTransactions>();
 			BankTransactions transaction = new BankTransactions(null, razorpay_payment_id, amount / 100, "DEPOSIT",
-					null,account.getBalance(),account.getBalance()+ amount / 100);
+					null, account.getBalance(), account.getBalance() + amount / 100);
 			transactions.add(transaction);
 			account.setBalance(account.getBalance() + amount / 100);
 			account.setBankTransactions(transactions);
@@ -240,6 +240,7 @@ public class UserServiceImpl implements UserService {
 			return ResponseEntity.ok(new ResponseDto("Deposit Success", transaction));
 		}
 	}
+
 	@Override
 	@Transactional
 	public ResponseEntity<ResponseDto> transfer(Principal principal, TransferDto dto) {
@@ -250,6 +251,8 @@ public class UserServiceImpl implements UserService {
 		if (fromAccount == null)
 			throw new DataNotFoundException("No Bank Accounts Found Linked with This User account");
 		else {
+			if (fromAccount.getAccountNumber() == toAccount.getAccountNumber())
+				throw new MissMatchException("To account Number Can not be Same as From");
 			if (!fromAccount.isActive() || fromAccount.isBlocked() || toAccount.isBlocked() || !toAccount.isActive())
 				throw new PaymentFailedException("Account is Not Active or Blocked Contact Admin");
 			else {
